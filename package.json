@@ -1,0 +1,41 @@
+{
+  "name": "onall",
+  "version": "1.0.0",
+  "description": "A helper for the eventemitter that allows to only be fired when all events of a given type have been fired",
+  "main": "index.js",
+  "keywords": [
+    "onall",
+    "onany",
+    "eventemitter"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "http://github.com/mallocator/onall",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/mallocator/onall.git"
+  },
+  "author": {
+    "name": "Ravi Gairola",
+    "email": "mallox@pyxzl.net",
+    "url": "https://github.com/mallocator"
+  },
+  "bugs": {
+    "url": "http://github.com/mallocator/onall/issues",
+    "email": "mallox@pyxzl.net"
+  },
+  "engine": {
+    "node": ">=5.0"
+  },
+  "scripts": {
+    "test": "istanbul cover _mocha",
+    "test-travis": "istanbul cover _mocha --report lcovonly -- -R spec"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "coveralls": "^2.11.9",
+    "gently": "^0.10.0",
+    "istanbul": "^0.4.3",
+    "mocha": "^2.4.5",
+    "mocha-lcov-reporter": "^1.2.0"
+  }
+}
