@@ -27,6 +27,7 @@ React as soon as all registered events have been fired at least once (and then r
 arguments are overwritten, unless ```useFirst``` is set to true in which case the first argument is used and subsequent arguments are discarded.
 
 ```
+var On = require('onall');
 var emitter = new events.EventEmitter();
 var on = new On(emitter);
 on.all(['event1', 'event2'], args => {
@@ -47,6 +48,7 @@ React as soon as all registered events have been fired at least once (and then r
 queue up events and not discard duplicate events.
 
 ```
+var On = require('onall');
 var emitter = new events.EventEmitter();
 var on = new On(emitter);
 on.allCached(['event1', 'event2'], args => {
@@ -69,6 +71,7 @@ Will react as soon as all events have been fired at least once and then no longe
 subsequent events will be ignored.
 
 ```
+var On = require('onall');
 var emitter = new events.EventEmitter();
 var on = new On(emitter);
 on.allOnce(['event1', 'event2'], args => {
@@ -90,6 +93,7 @@ emitter.emit('event2', 'arg4');
 Will react as soon as any of the given events are triggered.
 
 ```
+var On = require('onall');
 var emitter = new events.EventEmitter();
 var on = new On(emitter);
 on.any(['event1', 'event2'], (event, arg) => {
@@ -109,6 +113,7 @@ emitter.emit('event2', 'arg2');
 Will react as soon as any of the given events are triggered, and then stop listening.
 
 ```
+var On = require('onall');
 var emitter = new events.EventEmitter();
 var on = new On(emitter);
 on.anyOnce(['event1', 'event2'], (event, arg) => {
