@@ -104,6 +104,32 @@ describe('On', () => {
       emitter.emit('test2', 'arg2');
       emitter.emit('test2', 'arg4');
     });
+
+    it ('should limit the cache size', done => {
+      var emitter = new events.EventEmitter();
+      var on = new On(emitter);
+      var count = 0;
+      on.allCached(['test1', 'test2'], args => {
+        expect(Object.keys(args).length).to.equal(2);
+        switch (count) {
+          case 0:
+            expect(args.test1).to.deep.equal(['arg1']);
+            expect(args.test2).to.deep.equal(['arg2']);
+            break;
+          case 1:
+            expect(args.test1).to.deep.equal(['arg3']);
+            expect(args.test2).to.deep.equal(['arg4']);
+            done();
+            break;
+        }
+        count++;
+      }, 2);
+      emitter.emit('test1', 'arg0'); // will be discarded
+      emitter.emit('test1', 'arg1');
+      emitter.emit('test1', 'arg3');
+      emitter.emit('test2', 'arg2');
+      emitter.emit('test2', 'arg4');
+    })
   });
 
   describe('#any()', () => {

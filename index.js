@@ -61,8 +61,10 @@ class On {
    * Waits for all passed in events to be fired once. If an event is fired twice it's cached for the next round of callbacks.
    * @param {string[]} events
    * @param {function} callback
+   * @param {number} [cacheLimit=0] Sets a limited size for the cache. Once reached older messages will be discarded. Any false
+   *                                value will disable this check
    */
-  allCached(events, callback) {
+  allCached(events, callback, cacheLimit) {
     var status = [{}];
     var args = [{}];
     for (let event of events) {
@@ -79,6 +81,10 @@ class On {
           }
         }
         if (newRequired) {
+          if(cacheLimit && cacheLimit <= args.length) {
+            args.shift();
+            status.shift();
+          }
           args.push({
             [event]: Array.prototype.slice.call(arguments)
           });

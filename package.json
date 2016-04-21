@@ -1,6 +1,6 @@
 {
   "name": "onall",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A helper for the eventemitter that allows to only be fired when all events of a given type have been fired",
   "main": "index.js",
   "keywords": [
