@@ -132,7 +132,7 @@ class On {
   }
 
   /**
-   * * If any of the passed in events is triggered that callback is called once and then removed as a listener.
+   * If any of the passed in events is triggered that callback is called once and then removed as a listener.
    * @param {string[]} events
    * @param {function} callback
    */
@@ -150,13 +150,38 @@ class On {
   }
 
   /**
+   * If any of the passed in events is triggered that callback is called up to a given number of events.
+   * @param {string[]} events
+   * @param {number} count
+   * @param {function} callback
+   */
+  anyMany(events, count, callback) {
+    let emits = 0;
+    let emitter = this.emitter;
+    var callbacks = [];
+    for (let event of events) {
+      let wrapper = function() {
+        emits++;
+        if (emits == count) {
+          for (let callback of callbacks) {
+            emitter.removeListener(callback.event, callback.wrapper);
+          }
+        }
+        callback(event, ...Array.prototype.slice.call(arguments));
+      };
+      callbacks.push({event, wrapper});
+      this.emitter.on(event, wrapper);
+    }
+  }
+
+  /**
    * If any of the passed in events is triggered that callback is called.
    * @param {string[]} events
    * @param {function} callback
    */
   any(events, callback) {
     for (let event of events) {
-      this.emitter.once(event, function () {
+      this.emitter.on(event, function () {
         callback(event, ...Array.prototype.slice.call(arguments));
       });
     }

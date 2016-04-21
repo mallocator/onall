@@ -8,6 +8,7 @@ This is a super simple set of helper functions that allow you to react on more c
 Events can be bundled and processed when either all of them or any of them fire. There are different modes for how you
 want to handle repeat events. 
 
+This library is written in ECMA6 for node.js and currently not compatible with previous versions or browsers.
 
 ## Installation
 
@@ -42,10 +43,11 @@ emitter.emit('event2', 'arg2');
 
 ### On.allCached()
 
-```On.allCached({string[]} events, {function} callback)```
+```On.allCached({string[]} events, {function} callback, {number, optional} cacheLimit)```
 
-React as soon as all registered events have been fired at least once (and then reset). Other than the stand ```On.all()``` method this one will
-queue up events and not discard duplicate events.
+React as soon as all registered events have been fired at least once (and then reset). Other than the standard ```On.all()``` method this one will
+queue up events and not discard duplicate events. An optional limit to the size of the cache can be passed set which will discard the oldest partial 
+entries.
 
 ```
 var On = require('onall');
@@ -110,7 +112,7 @@ emitter.emit('event2', 'arg2');
 
 ```On.anyOnce({string[]} events, {function} callback)```
 
-Will react as soon as any of the given events are triggered, and then stop listening.
+Will react as soon as any of the given events are triggered, and then stops listening.
 
 ```
 var On = require('onall');
@@ -122,6 +124,26 @@ on.anyOnce(['event1', 'event2'], (event, arg) => {
 emitter.emit('event1', 'arg1');
 => 'event1', 'arg1'
 emitter.emit('event2', 'arg2');
+=> ignored
+```
+
+
+### On.anyMany()
+
+Will react as soon as a given number of events are triggered, and then stops listening.
+
+```
+var On = require('onall');
+var emitter = new events.EventEmitter();
+var on = new On(emitter);
+on.anyMany(['event1', 'event2'], 2, (event, arg) => {
+    console.log(event, arg);
+});
+emitter.emit('event1', 'arg1');
+=> 'event1', 'arg1'
+emitter.emit('event2', 'arg2');
+=> 'event2', 'arg2'
+emitter.emit('event1', 'arg3');
 => ignored
 ```
 

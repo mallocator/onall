@@ -155,6 +155,35 @@ describe('On', () => {
     });
   });
 
+  describe('#anyMany()', () => {
+    it('should fire as often as the desired and then no more', done => {
+      var emitter = new events.EventEmitter();
+      var on = new On(emitter);
+      var counter = 0;
+      on.anyMany(['test1', 'test2'], 2, (event, args) => {
+        switch (counter) {
+          case 0:
+            expect(event).to.equal('test1');
+            expect(args).to.equal('arg1');
+            break;
+          case 1:
+            expect(event).to.equal('test2');
+            expect(args).to.equal('arg2');
+            expect(emitter.listenerCount('test1')).to.equal(0);
+            expect(emitter.listenerCount('test2')).to.equal(0);
+            done();
+            break;
+          case 2:
+            expect.fail();
+        }
+        counter++;
+      });
+      emitter.emit('test1', 'arg1');
+      emitter.emit('test2', 'arg2');
+      emitter.emit('test2', 'arg3'); // ignored
+    });
+  });
+
   describe('#anyOnce()', () => {
     it('should fire only once as soon as any of the given events has been triggered', done => {
       var emitter = new events.EventEmitter();
@@ -162,10 +191,12 @@ describe('On', () => {
       on.anyOnce(['test1', 'test2'], (event, args) => {
           expect(event).to.equal('test1');
           expect(args).to.equal('arg1');
-          done();
       });
       emitter.emit('test1', 'arg1');
-      emitter.emit('test2', 'arg2');
+      emitter.emit('test2', 'arg2'); // ignored
+      expect(emitter.listenerCount('test1')).to.equal(0);
+      expect(emitter.listenerCount('test2')).to.equal(0);
+      done();
     });
   });
 });
