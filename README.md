@@ -43,11 +43,11 @@ emitter.emit('event2', 'arg2');
 
 ### On.allCached()
 
-```On.allCached({string[]} events, {function} callback, {number, optional} cacheLimit)```
+```On.allCached({string[]} events, {function} callback, {number, optional} cacheLimit, {boolean, optional} lifo)```
 
 React as soon as all registered events have been fired at least once (and then reset). Other than the standard ```On.all()``` method this one will
 queue up events and not discard duplicate events. An optional limit to the size of the cache can be passed set which will discard the oldest partial 
-entries.
+entries. The limited cache can discard oldest entries first (default: lifo = false) or newest first (lifo = true).
 
 ```
 var On = require('onall');
@@ -84,6 +84,32 @@ emitter.emit('event2', 'arg2');
 // => { event1: ['arg1'], event2: ['arg2'] }
 emitter.emit('event1', 'arg3');
 emitter.emit('event2', 'arg4');
+// => ignored
+```
+
+
+### On.allMany()
+
+```On.allOnce({string[]} events, {number} count, {function} callback, {boolean, optional} useFirst)```
+
+Will react as soon as all events have been fired at least once and then no longer listen to events. Only the configured number of events is recorded so that
+subsequent events will be ignored.
+
+```
+var On = require('onall');
+var emitter = new events.EventEmitter();
+var on = new On(emitter);
+on.allMany(['event1', 'event2'], 2, args => {
+    console.log(args);
+});
+emitter.emit('event1', 'arg1');
+emitter.emit('event2', 'arg2');
+// => { event1: ['arg1'], event2: ['arg2'] }
+emitter.emit('event1', 'arg3');
+emitter.emit('event2', 'arg4');
+// => { event1: ['arg3'], event2: ['arg4'] }
+emitter.emit('event1', 'arg5');
+emitter.emit('event2', 'arg6');
 // => ignored
 ```
 

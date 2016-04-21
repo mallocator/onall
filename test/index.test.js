@@ -57,10 +57,10 @@ describe('On', () => {
         expect(args.test2).to.deep.equal(['arg2']);
         done();
       });
-      emitter.emit('test1', 'arg1');
+      emitter.emit('test1', 'arg1'); // ignored
       emitter.emit('test1', 'arg3');
       emitter.emit('test2', 'arg2');
-      emitter.emit('test2', 'arg4');
+      emitter.emit('test2', 'arg4'); // ignored
     });
 
     it('should only be fired once with the first arguments passed in', done => {
@@ -74,8 +74,68 @@ describe('On', () => {
       }, true);
       emitter.emit('test1', 'arg1');
       emitter.emit('test2', 'arg2');
+      emitter.emit('test1', 'arg3'); // ignored
+      emitter.emit('test2', 'arg4'); // ignored
+    });
+  });
+
+  describe('#allMany()', () => {
+    it('should only be fired as often as defined with the last arguments passed in', done => {
+      var emitter = new events.EventEmitter();
+      var on = new On(emitter);
+      var count = 0;
+      on.allMany(['test1', 'test2'], 2, args => {
+        switch (count) {
+          case 0:
+            expect(Object.keys(args).length).to.equal(2);
+            expect(args.test1).to.deep.equal(['arg1']);
+            expect(args.test2).to.deep.equal(['arg2']);
+            break;
+          case 1:
+            expect(Object.keys(args).length).to.equal(2);
+            expect(args.test1).to.deep.equal(['arg3']);
+            expect(args.test2).to.deep.equal(['arg4']);
+            expect(emitter.listenerCount('test1')).to.equal(0);
+            expect(emitter.listenerCount('test2')).to.equal(0);
+        }
+        count++;
+      });
+      emitter.emit('test1', 'arg0'); // overridden
+      emitter.emit('test1', 'arg1');
+      emitter.emit('test2', 'arg2');
       emitter.emit('test1', 'arg3');
       emitter.emit('test2', 'arg4');
+      emitter.emit('test2', 'arg5'); // ignored
+      done();
+    });
+
+    it('should only be fired as often as defined with the first arguments passed in', done => {
+      var emitter = new events.EventEmitter();
+      var on = new On(emitter);
+      var count = 0;
+      on.allMany(['test1', 'test2'], 2, args => {
+        switch(count) {
+          case 0:
+            expect(Object.keys(args).length).to.equal(2);
+            expect(args.test1).to.deep.equal(['arg1']);
+            expect(args.test2).to.deep.equal(['arg2']);
+            break;
+          case 1:
+            expect(Object.keys(args).length).to.equal(2);
+            expect(args.test1).to.deep.equal(['arg3']);
+            expect(args.test2).to.deep.equal(['arg4']);
+            expect(emitter.listenerCount('test1')).to.equal(0);
+            expect(emitter.listenerCount('test2')).to.equal(0);
+        }
+        count++;
+      }, true);
+      emitter.emit('test1', 'arg1');
+      emitter.emit('test2', 'arg2');
+      emitter.emit('test1', 'arg3');
+      emitter.emit('test2', 'arg4');
+      emitter.emit('test1', 'arg5'); // ignored
+      emitter.emit('test2', 'arg6'); // ignored
+      done();
     });
   });
 
@@ -105,7 +165,7 @@ describe('On', () => {
       emitter.emit('test2', 'arg4');
     });
 
-    it ('should limit the cache size', done => {
+    it ('should limit the cache size and discard oldest entries first', done => {
       var emitter = new events.EventEmitter();
       var on = new On(emitter);
       var count = 0;
@@ -124,12 +184,38 @@ describe('On', () => {
         }
         count++;
       }, 2);
-      emitter.emit('test1', 'arg0'); // will be discarded
+      emitter.emit('test1', 'arg0'); // overwritten
       emitter.emit('test1', 'arg1');
       emitter.emit('test1', 'arg3');
       emitter.emit('test2', 'arg2');
       emitter.emit('test2', 'arg4');
-    })
+    });
+
+    it('should limit the cache size and discard newest entries first', done => {
+      var emitter = new events.EventEmitter();
+      var on = new On(emitter);
+      var count = 0;
+      on.allCached(['test1', 'test2'], args => {
+        expect(Object.keys(args).length).to.equal(2);
+        switch (count) {
+          case 0:
+            expect(args.test1).to.deep.equal(['arg1']);
+            expect(args.test2).to.deep.equal(['arg2']);
+            break;
+          case 1:
+            expect(args.test1).to.deep.equal(['arg3']);
+            expect(args.test2).to.deep.equal(['arg4']);
+            done();
+            break;
+        }
+        count++;
+      }, 2, true);
+      emitter.emit('test1', 'arg1');
+      emitter.emit('test1', 'arg3');
+      emitter.emit('test1', 'arg5'); // ignored
+      emitter.emit('test2', 'arg2');
+      emitter.emit('test2', 'arg4');
+    });
   });
 
   describe('#any()', () => {

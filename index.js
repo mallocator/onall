@@ -20,7 +20,7 @@ class On {
    * Multiple calls to the same event are ignored.
    * @param {string[]} events
    * @param {function} callback
-   * @param {boolean} [useFirst]
+   * @param {boolean} [useFirst=false]
    */
   allOnce(events, callback, useFirst) {
     var status = {};
@@ -58,13 +58,55 @@ class On {
   }
 
   /**
+   * Waits for all passed in events to be fired as often as defined. Arguments are passed on as object parameter with
+   * keys for each event. Multiple calls to the same event are ignored.
+   * @param {string[]} events
+   * @param {number} count
+   * @param {function} callback
+   * @param {boolean} [useFirst=false]
+   */
+  allMany(events, count, callback, useFirst) {
+    var status = {};
+    var args = {};
+    var callbacks = [];
+    var emits = 0;
+    var emitter = this.emitter;
+    for (let event of events) {
+      status[event] = true;
+      let wrapper = function () {
+        var eventArgs = Array.prototype.slice.call(arguments);
+        delete status[event];
+        args[event] = useFirst && args[event] != undefined ? args[event] : eventArgs;
+        if (isEmpty(status)) {
+          emits++;
+          if (emits==count) {
+            for (let callback of callbacks) {
+              emitter.removeListener(callback.event, callback.wrapper);
+            }
+          }
+          status = {};
+          for (let event2 of events) {
+            status[event2] = true;
+          }
+          callback(args);
+          args = {};
+        }
+      };
+      callbacks.push({ event, wrapper });
+      this.emitter.on(event, wrapper);
+    }
+  }
+
+  /**
    * Waits for all passed in events to be fired once. If an event is fired twice it's cached for the next round of callbacks.
    * @param {string[]} events
    * @param {function} callback
    * @param {number} [cacheLimit=0] Sets a limited size for the cache. Once reached older messages will be discarded. Any false
    *                                value will disable this check
+   * @param {boolean} [lifo=false]  Sets whether we should discard old or new events first when the cacheLimit has been reached.
+   *                                ('lifo' = last in first out, default is 'fifo' = first in first out)
    */
-  allCached(events, callback, cacheLimit) {
+  allCached(events, callback, cacheLimit, lifo) {
     var status = [{}];
     var args = [{}];
     for (let event of events) {
@@ -81,13 +123,13 @@ class On {
           }
         }
         if (newRequired) {
-          if(cacheLimit && cacheLimit <= args.length) {
-            args.shift();
-            status.shift();
-          }
           args.push({
             [event]: Array.prototype.slice.call(arguments)
           });
+          if (cacheLimit && cacheLimit < args.length) {
+            lifo ? status.pop() : status.shift();
+            lifo ? args.pop() : args.shift();
+          }
           var queuedStatus = {};
           for (let event2 of events) {
             queuedStatus[event2] = true;
