@@ -2,7 +2,9 @@
 
 function isEmpty(obj) {
   for (var prop in obj) {
-    return false;
+    if (obj.hasOwnProperty(prop)) {
+      return false;
+    }
   }
   return true;
 }
@@ -76,7 +78,7 @@ class On {
       let wrapper = function () {
         var eventArgs = Array.prototype.slice.call(arguments);
         delete status[event];
-        args[event] = useFirst && args[event] != undefined ? args[event] : eventArgs;
+        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs;
         if (isEmpty(status)) {
           emits++;
           if (emits==count) {
