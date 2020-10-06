@@ -2,7 +2,8 @@
 [![npm version](https://badge.fury.io/js/onall.svg)](http://badge.fury.io/js/onall)
 [![Build Status](https://travis-ci.org/mallocator/onall.svg?branch=master)](https://travis-ci.org/mallocator/onall)
 [![Coverage Status](https://coveralls.io/repos/github/mallocator/onall/badge.svg?branch=master)](https://coveralls.io/github/mallocator/onall?branch=master)
-[![Dependency Status](https://david-dm.org/mallocator/onall.svg)](https://david-dm.org/mallocator/onall) 
+[![Dependency Status](https://david-dm.org/mallocator/onall.svg)](https://david-dm.org/mallocator/onall) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmallocator%2Fonall.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmallocator%2Fonall?ref=badge_shield)
+
 
 This is a super simple set of helper functions that allow you to react on more complex events from an event emitter.
 Events can be bundled and processed when either all of them or any of them fire. There are different modes for how you
@@ -182,3 +183,7 @@ To run the tests simply run ```npm test```
 ## Bugs / Feature Requests / Questions
 
 If you have any of those you can file a ticket on [Github](https://github.com/mallocator/onall/issues) or send me an email to mallox@pyxzl.net
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmallocator%2Fonall.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmallocator%2Fonall?ref=badge_large)
