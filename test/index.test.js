@@ -285,4 +285,29 @@ describe('On', () => {
       done();
     });
   });
+
+  describe('#getExternalEmitter()', () => {
+    it('should act like a normal emitter', done => {
+      const emitter = On.getExtendedEmitter(new events.EventEmitter());
+      expect(emitter.on).to.be.a('function');
+      expect(emitter.once).to.be.a('function');
+      expect(emitter.emit).to.be.a('function');
+      emitter.on('test', done);
+      emitter.emit('test');
+    });
+
+    it('should have all extended methods', done => {
+      const emitter = On.getExtendedEmitter(new events.EventEmitter());
+      expect(emitter.all).to.be.a('function');
+      expect(emitter.allOnce).to.be.a('function');
+      expect(emitter.allMany).to.be.a('function');
+      expect(emitter.allCached).to.be.a('function');
+      expect(emitter.any).to.be.a('function');
+      expect(emitter.anyOnce).to.be.a('function');
+      expect(emitter.anyMany).to.be.a('function');
+      emitter.all(['test1', 'test2'], () => done());
+      emitter.emit('test1');
+      emitter.emit('test2');
+    });
+  });
 });

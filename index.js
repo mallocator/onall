@@ -230,6 +230,26 @@ class On {
       });
     }
   }
+
+  /**
+   * Extends an event emitter with the methods of this class. Both the original emitter methods as well as the new
+   * methods are available.
+   * @param {EventEmitter} emitter
+   * @return {Proxy<EventEmitter>} The extended emitter
+   */
+  static getExtendedEmitter(emitter) {
+    const on = new On(emitter);
+    return new Proxy(emitter, {
+      get: function (target, name) {
+        if (name in target) {
+          return target[name];
+        }
+        if (name in On.prototype) {
+          return On.prototype[name].bind(on);
+        }
+      }
+    });
+  }
 }
 
 module.exports = On;
