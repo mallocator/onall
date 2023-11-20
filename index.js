@@ -1,20 +1,22 @@
-'use strict';
+'use strict'
+
+import EventEmitter from 'events'
 
 function isEmpty(obj) {
-  for (var prop in obj) {
+  for (const prop in obj) {
     if (obj.hasOwnProperty(prop)) {
-      return false;
+      return false
     }
   }
-  return true;
+  return true
 }
 
 /**
  * An event emitter helper class that allows to register multiple events at once.
  */
-class On {
-  constructor(emitter) {
-    this.emitter = emitter;
+export default class On extends EventEmitter {
+  constructor(...args) {
+    super(...args)
   }
 
   /**
@@ -25,36 +27,36 @@ class On {
    * @param {boolean} [useFirst=false]
    */
   allOnce(events, callback, useFirst) {
-    var status = {};
-    var args = {};
+    let status = {}
+    let args = {}
     if (useFirst) {
-      for (let event of events) {
-        status[event] = true;
-        this.emitter.once(event, function () {
-          delete status[event];
-          args[event] = Array.prototype.slice.call(arguments);
+      for (const event of events) {
+        status[event] = true
+        this.once(event,  (...eventArgs) => {
+          delete status[event]
+          args[event] = eventArgs
           if (isEmpty(status)) {
-            callback(args);
+            callback(args)
           }
-        });
+        })
       }
     } else {
-      var listeners = [];
-      var that = this;
-      for (let event of events) {
-        status[event] = true;
-        let listener = function() {
-          delete status[event];
-          args[event] = Array.prototype.slice.call(arguments);
+      let listeners = []
+      let that = this
+      for (const event of events) {
+        status[event] = true
+        let listener = (...eventArgs) =>  {
+          delete status[event]
+          args[event] = eventArgs
           if (isEmpty(status)) {
             for (let listener of listeners) {
-              that.emitter.removeListener(event, listener);
+              that.removeListener(event, listener)
             }
-            callback(args);
+            callback(args)
           }
-        };
-        listeners.push(listener);
-        this.emitter.on(event, listener);
+        }
+        listeners.push(listener)
+        this.on(event, listener)
       }
     }
   }
@@ -68,34 +70,32 @@ class On {
    * @param {boolean} [useFirst=false]
    */
   allMany(events, count, callback, useFirst) {
-    var status = {};
-    var args = {};
-    var callbacks = [];
-    var emits = 0;
-    var emitter = this.emitter;
-    for (let event of events) {
-      status[event] = true;
-      let wrapper = function () {
-        var eventArgs = Array.prototype.slice.call(arguments);
-        delete status[event];
-        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs;
+    let status = {}
+    let args = {}
+    let callbacks = []
+    let emits = 0
+    for (const event of events) {
+      status[event] = true
+      let wrapper =  (...eventArgs) => {
+        delete status[event]
+        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs
         if (isEmpty(status)) {
-          emits++;
-          if (emits==count) {
+          emits++
+          if (emits === count) {
             for (let callback of callbacks) {
-              emitter.removeListener(callback.event, callback.wrapper);
+              this.removeListener(callback.event, callback.wrapper)
             }
           }
-          status = {};
-          for (let event2 of events) {
-            status[event2] = true;
+          status = {}
+          for (const event2 of events) {
+            status[event2] = true
           }
-          callback(args);
-          args = {};
+          callback(args)
+          args = {}
         }
-      };
-      callbacks.push({ event, wrapper });
-      this.emitter.on(event, wrapper);
+      }
+      callbacks.push({ event, wrapper })
+      this.on(event, wrapper)
     }
   }
 
@@ -109,42 +109,42 @@ class On {
    *                                ('lifo' = last in first out, default is 'fifo' = first in first out)
    */
   allCached(events, callback, cacheLimit, lifo) {
-    var status = [{}];
-    var args = [{}];
-    for (let event of events) {
-      status[0][event] = true;
-      this.emitter.on(event, function () {
-        var newRequired = true;
-        for (let i in args) {
-          var arg = args[i];
+    let status = [{}]
+    let args = [{}]
+    for (const event of events) {
+      status[0][event] = true
+      this.on(event,  (...eventArgs) => {
+        let newRequired = true
+        for (const i in args) {
+          const arg = args[i]
           if (!arg[event]) {
-            arg[event] = Array.prototype.slice.call(arguments);
-            newRequired = false;
-            delete status[i][event];
-            break;
+            arg[event] = eventArgs
+            newRequired = false
+            delete status[i][event]
+            break
           }
         }
         if (newRequired) {
           args.push({
-            [event]: Array.prototype.slice.call(arguments)
-          });
+            [event]: eventArgs
+          })
           if (cacheLimit && cacheLimit < args.length) {
-            lifo ? status.pop() : status.shift();
-            lifo ? args.pop() : args.shift();
+            lifo ? status.pop() : status.shift()
+            lifo ? args.pop() : args.shift()
           }
-          var queuedStatus = {};
-          for (let event2 of events) {
-            queuedStatus[event2] = true;
+          let queuedStatus = {}
+          for (const event2 of events) {
+            queuedStatus[event2] = true
           }
-          delete queuedStatus[event];
-          status.push(queuedStatus);
+          delete queuedStatus[event]
+          status.push(queuedStatus)
         }
         if (isEmpty(status[0])) {
-          status.shift();
-          callback(args[0]);
-          args.shift();
+          status.shift()
+          callback(args[0])
+          args.shift()
         }
-      });
+      })
     }
   }
 
@@ -155,23 +155,22 @@ class On {
    * @param {boolean} [useFirst=false]
    */
   all(events, callback, useFirst) {
-    var status = {};
-    var args = {};
-    for (let event of events) {
-      status[event] = true;
-      this.emitter.on(event, function () {
-        var eventArgs = Array.prototype.slice.call(arguments);
-        delete status[event];
-        args[event] = useFirst && args[event] != undefined ? args[event] : eventArgs;
+    let status = {}
+    let args = {}
+    for (const event of events) {
+      status[event] = true
+      this.on(event,  (...eventArgs) => {
+        delete status[event]
+        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs
         if (isEmpty(status)) {
-          status = {};
-          for (let event2 of events) {
-            status[event2] = true;
+          status = {}
+          for (const event2 of events) {
+            status[event2] = true
           }
-          callback(args);
-          args = {};
+          callback(args)
+          args = {}
         }
-      });
+      })
     }
   }
 
@@ -181,15 +180,15 @@ class On {
    * @param {function} callback
    */
   anyOnce(events, callback) {
-    var done = false;
-    for (let event of events) {
-      this.emitter.once(event, function () {
+    let done = false
+    for (const event of events) {
+      this.once(event, (...args) => {
         if (done) {
-          return;
+          return
         }
-        done = true;
-        callback(event, ...Array.prototype.slice.call(arguments));
-      });
+        done = true
+        callback(event, ...args)
+      })
     }
   }
 
@@ -200,21 +199,20 @@ class On {
    * @param {function} callback
    */
   anyMany(events, count, callback) {
-    let emits = 0;
-    let emitter = this.emitter;
-    var callbacks = [];
-    for (let event of events) {
-      let wrapper = function() {
-        emits++;
-        if (emits == count) {
-          for (let callback of callbacks) {
-            emitter.removeListener(callback.event, callback.wrapper);
+    const callbacks = []
+    let emits = 0
+    for (const event of events) {
+      let wrapper = (...args) => {
+        emits++
+        if (emits === count) {
+          for (const callback of callbacks) {
+            this.removeListener(callback.event, callback.wrapper)
           }
         }
-        callback(event, ...Array.prototype.slice.call(arguments));
-      };
-      callbacks.push({event, wrapper});
-      this.emitter.on(event, wrapper);
+        callback(event, ...args)
+      }
+      callbacks.push({event, wrapper})
+      this.on(event, wrapper)
     }
   }
 
@@ -224,32 +222,10 @@ class On {
    * @param {function} callback
    */
   any(events, callback) {
-    for (let event of events) {
-      this.emitter.on(event, function () {
-        callback(event, ...Array.prototype.slice.call(arguments));
-      });
+    for (const event of events) {
+      this.on(event, (...args) => {
+        callback(event, ...args)
+      })
     }
   }
-
-  /**
-   * Extends an event emitter with the methods of this class. Both the original emitter methods as well as the new
-   * methods are available.
-   * @param {EventEmitter} emitter
-   * @return {Proxy<EventEmitter>} The extended emitter
-   */
-  static getExtendedEmitter(emitter) {
-    const on = new On(emitter);
-    return new Proxy(emitter, {
-      get: function (target, name) {
-        if (name in target) {
-          return target[name];
-        }
-        if (name in On.prototype) {
-          return On.prototype[name].bind(on);
-        }
-      }
-    });
-  }
 }
-
-module.exports = On;
