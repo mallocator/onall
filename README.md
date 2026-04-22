@@ -1,184 +1,216 @@
 # onall
-[![npm version](https://badge.fury.io/js/onall.svg)](http://badge.fury.io/js/onall)
-[![Build Status](https://travis-ci.org/mallocator/onall.svg?branch=master)](https://travis-ci.org/mallocator/onall)
-[![Coverage Status](https://coveralls.io/repos/github/mallocator/onall/badge.svg?branch=master)](https://coveralls.io/github/mallocator/onall?branch=master)
-[![Dependency Status](https://david-dm.org/mallocator/onall.svg)](https://david-dm.org/mallocator/onall) 
 
-This is a super simple set of helper functions that allow you to react on more complex events from an event emitter.
-Events can be bundled and processed when either all of them or any of them fire. There are different modes for how you
-want to handle repeat events. 
+[![npm version](https://badge.fury.io/js/onall.svg)](https://www.npmjs.com/package/onall)
+[![CI](https://github.com/mallocator/onall/actions/workflows/ci.yml/badge.svg)](https://github.com/mallocator/onall/actions/workflows/ci.yml)
 
-This library is written in ECMA6 for node.js and currently not compatible with previous versions or browsers.
+A small `EventEmitter` extension that fires when **all** (or **any**) of a
+set of events have been emitted. Classic callback-and-`this` API plus
+`AbortSignal`-based cancellation. Zero runtime dependencies.
 
 ## Installation
 
-```npm install --save onall```
+```sh
+npm install onall
+```
 
+Requires Node.js 16 or newer. On Node 16 the `reason` argument to
+`AbortController#abort` (and the matching `signal.reason`) is silently
+dropped — propagating an abort reason requires Node 17.2+.
+
+## Usage
+
+```js
+import On from 'onall'
+
+const on = new On()
+
+on.allOnce(['ready', 'connected'], ({ ready, connected }) => {
+  console.log('both fired:', ready, connected)
+})
+
+on.emit('ready', 1)
+on.emit('connected', 'ok')
+// -> both fired: [1] ['ok']
+```
+
+Every callback receives a `Record<string, unknown[]>` keyed by event name
+where the value is the array of arguments that were emitted (matching
+`EventEmitter` semantics — `emit('x', 1, 2)` → `{ x: [1, 2] }`).
+
+`any*` callbacks instead receive `(eventName, ...args)`.
 
 ## API
 
-Here are some simple examples on how to use the API. For more details take a look at the test cases.
+All methods accept an optional trailing options object:
 
+| Option       | Methods                              | Description                                                     |
+| ------------ | ------------------------------------ | --------------------------------------------------------------- |
+| `useFirst`   | `all`, `allOnce`, `allMany`          | Keep the first received args per event instead of the last.    |
+| `cacheLimit` | `allCached`                          | Maximum number of buffered partial rounds.                      |
+| `lifo`       | `allCached`                          | When buffered, evict newest incomplete partial first.           |
+| `signal`     | all                                  | `AbortSignal` that disposes the registration's listeners.       |
 
-### On.all()
+Like the parent `EventEmitter`, every listener-attaching method takes a
+callback and returns `this`, so calls can be chained.
 
-```On.all({string[]} events, {function} callback, {boolean, optional} useFirst)```
+The `events` array may not contain duplicates; passing one throws
+`TypeError`. The array is snapshotted on entry, so mutating it after the
+call has no effect on which events are watched.
 
-React as soon as all registered events have been fired at least once (and then reset). If an event is fired before all other events are fired, the 
-arguments are overwritten, unless ```useFirst``` is set to true in which case the first argument is used and subsequent arguments are discarded.
+To cancel a registration, pass an [`AbortSignal`][abortsignal] in the
+`signal` option. When you call `controller.abort()` on its
+`AbortController`, every listener attached by that single call is
+removed. One
+controller can drive many registrations — pass the same `signal` to each
+call and a single `abort()` tears them all down together.
 
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.all(['event1', 'event2'], args => {
-    console.log(args);
-});
-emitter.emit('event1', 'arg1');
-emitter.emit('event1', 'arg3');
-emitter.emit('event2', 'arg2');
- // => { event1: ['arg3'], event2: ['arg2'] }
-```                
+```js
+const ac = new AbortController()
 
+on.all(['ready', 'connected'], cb, { signal: ac.signal })
+on.any(['error', 'close'],     cb, { signal: ac.signal })
 
-### On.allCached()
-
-```On.allCached({string[]} events, {function} callback, {number, optional} cacheLimit, {boolean, optional} lifo)```
-
-React as soon as all registered events have been fired at least once (and then reset). Other than the standard ```On.all()``` method this one will
-queue up events and not discard duplicate events. An optional limit to the size of the cache can be passed set which will discard the oldest partial 
-entries. The limited cache can discard oldest entries first (default: lifo = false) or newest first (lifo = true).
-
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.allCached(['event1', 'event2'], args => {
-    console.log(args);
-});
-emitter.emit('event1', 'arg1');
-emitter.emit('event1', 'arg3');
-emitter.emit('event2', 'arg2');
-// => { event1: ['arg1'], event2: ['arg2'] }
-emitter.emit('event2', 'arg4');
- // => { event1: ['arg3'], event2: ['arg4'] }
-```             
-
-
-### On.allOnce()
-
-```On.allOnce({string[]} events, {function} callback, {boolean, optional} useFirst)```
-
-Will react as soon as all events have been fired at least once and then no longer listen to events. Only the first event is recorded so that
-subsequent events will be ignored.
-
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.allOnce(['event1', 'event2'], args => {
-    console.log(args);
-});
-emitter.emit('event1', 'arg1');
-emitter.emit('event2', 'arg2');
-// => { event1: ['arg1'], event2: ['arg2'] }
-emitter.emit('event1', 'arg3');
-emitter.emit('event2', 'arg4');
-// => ignored
+ac.abort() // both registrations removed
 ```
 
+[abortsignal]: https://developer.mozilla.org/docs/Web/API/AbortSignal
 
-### On.allMany()
+### `on.all(events, callback, options?)`
 
-```On.allOnce({string[]} events, {number} count, {function} callback, {boolean, optional} useFirst)```
+Fires `callback` whenever every event has fired at least once, then resets
+and listens again. Within a single round (the window from "listeners
+attached" to "every event has fired at least once"), repeat emissions of
+the same event overwrite the previously stored args by default.
 
-Will react as soon as all events have been fired at least once and then no longer listen to events. Only the configured number of events is recorded so that
-subsequent events will be ignored.
-
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.allMany(['event1', 'event2'], 2, args => {
-    console.log(args);
-});
-emitter.emit('event1', 'arg1');
-emitter.emit('event2', 'arg2');
-// => { event1: ['arg1'], event2: ['arg2'] }
-emitter.emit('event1', 'arg3');
-emitter.emit('event2', 'arg4');
-// => { event1: ['arg3'], event2: ['arg4'] }
-emitter.emit('event1', 'arg5');
-emitter.emit('event2', 'arg6');
-// => ignored
+```js
+on.all(['a', 'b'], args => console.log(args))
+on.emit('a', 1); on.emit('a', 3); on.emit('b', 2)
+// -> { a: [3], b: [2] }
 ```
 
+#### `useFirst`
 
-### On.any()
+`useFirst` controls which payload wins when the **same** event fires
+multiple times **before a round completes**:
 
-```On.any({string[]} events, {function} callback)```
+- `useFirst: false` (default) — **last write wins.** Each new emission of
+  an event overwrites the previously stored args.
+- `useFirst: true` — **first write wins.** The first emission is kept;
+  subsequent emissions of the same event in that round are ignored.
 
-Will react as soon as any of the given events are triggered.
-
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.any(['event1', 'event2'], (event, arg) => {
-    console.log(event, arg);
-});
-emitter.emit('event1', 'arg1');
-=> 'event1', 'arg1'
-emitter.emit('event2', 'arg2');
-=> 'event2', 'arg2'
+```js
+on.all(['a', 'b'], args => console.log(args), { useFirst: true })
+on.emit('a', 1)
+on.emit('a', 2)   // ignored
+on.emit('a', 3)   // ignored
+on.emit('b', 9)   // round complete -> { a: [1], b: [9] }
 ```
 
+Use the default when you want the latest snapshot of state once everything
+has reported in (e.g. coalescing config updates). Use `useFirst: true`
+when arrival matters more than payload, or later emissions are stale
+retries (e.g. capturing the original timestamp).
 
-### On.anyOnce()
+`useFirst` only matters for *duplicate* emissions; once every event has
+fired the round closes and the accumulator resets. The option does not
+apply to `allCached`, which buffers extras into future rounds rather than
+discarding them.
 
-```On.anyOnce({string[]} events, {function} callback)```
+### `on.allOnce(events, callback, options?)`
 
-Will react as soon as any of the given events are triggered, and then stops listening.
+Same as `all`, but fires only once and removes its listeners afterwards.
 
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.anyOnce(['event1', 'event2'], (event, arg) => {
-    console.log(event, arg);
-});
-emitter.emit('event1', 'arg1');
-=> 'event1', 'arg1'
-emitter.emit('event2', 'arg2');
-=> ignored
-```
-
-
-### On.anyMany()
-
-Will react as soon as a given number of events are triggered, and then stops listening.
-
-```
-var On = require('onall');
-var emitter = new events.EventEmitter();
-var on = new On(emitter);
-on.anyMany(['event1', 'event2'], 2, (event, arg) => {
-    console.log(event, arg);
-});
-emitter.emit('event1', 'arg1');
-=> 'event1', 'arg1'
-emitter.emit('event2', 'arg2');
-=> 'event2', 'arg2'
-emitter.emit('event1', 'arg3');
-=> ignored
+```js
+on.allOnce(['ready', 'loaded'], ({ ready, loaded }) => {
+  console.log(ready, loaded)
+})
 ```
 
+### `on.allMany(events, count, callback, options?)`
 
-## Tests
+Like `allOnce`, but completes `count` rounds before stopping.
 
-To run the tests simply run ```npm test```
+### `on.allCached(events, callback, options?)`
 
+Like `all`, but extra emissions of the same event are buffered for future
+rounds rather than discarded. Use `cacheLimit` to bound memory usage.
 
-## Bugs / Feature Requests / Questions
+```js
+on.allCached(['a', 'b'], args => console.log(args), { cacheLimit: 4 })
+```
 
-If you have any of those you can file a ticket on [Github](https://github.com/mallocator/onall/issues) or send me an email to mallox@pyxzl.net
+### `on.any(events, callback, options?)`
+
+Fires `callback(event, ...args)` whenever any of the given events fires.
+
+```js
+const ac = new AbortController()
+on.any(['click', 'tap'], (event, e) => handle(event, e), { signal: ac.signal })
+// later: ac.abort()
+```
+
+### `on.anyOnce(events, callback, options?)`
+
+Fires once on the first triggered event, then removes all listeners.
+
+```js
+on.anyOnce(['success', 'error'], (event, ...args) => {
+  console.log('first:', event, args)
+})
+```
+
+### `on.anyMany(events, count, callback, options?)`
+
+Fires for the first `count` triggers across all events, then stops.
+
+### `on.scope()`
+
+Returns a scope object whose registration methods auto-inject an
+`AbortSignal`. Calling `scope.cancel()` (or aborting `scope.signal`)
+tears down every registration made through that scope, in addition to
+any per-call `signal` the caller supplied.
+
+Use this when a component, request, or task makes several `On`
+registrations that should all be removed together — instead of plumbing
+the same `AbortController` into every call.
+
+```js
+function connect(on) {
+  const group = on.scope()
+
+  group.all(['ready', 'connected'], onReady)
+  group.any(['error', 'close'], onTeardown)
+  group.allOnce(['done'], onDone)
+
+  return () => group.cancel() // one call removes all three
+}
+```
+
+A per-call `signal` still works — it is composed with the scope's signal
+via [`AbortSignal.any`][abortany], so whichever aborts first wins.
+
+[abortany]: https://developer.mozilla.org/docs/Web/API/AbortSignal/any
+
+## Cancellation with AbortSignal
+
+```js
+const ac = new AbortController()
+on.allOnce(['fetch:done', 'fetch:error'], result => handle(result), {
+  signal: ac.signal,
+})
+
+setTimeout(() => ac.abort(new Error('timeout')), 1000)
+// When the controller aborts, the listeners are removed; the callback
+// simply never fires.
+```
+
+## Tests & Coverage
+
+```sh
+npm test          # run the suite
+npm run coverage  # run with V8 coverage; outputs coverage/lcov.info
+```
+
+## License
+
+Apache-2.0

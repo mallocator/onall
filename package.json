@@ -1,46 +1,60 @@
 {
-  "name": "onall",
-  "version": "2.0.0",
-  "description": "A helper for the event emitter that allows to only be fired when all events of a given type have been fired",
-  "main": "index.js",
-  "type": "module",
-  "keywords": [
-    "onall",
-    "onany",
-    "eventemitter"
-  ],
-  "license": "Apache-2.0",
-  "homepage": "http://github.com/mallocator/onall",
-  "repository": {
-    "type": "git",
-    "url": "http://github.com/mallocator/onall.git"
-  },
-  "author": {
-    "name": "Ravi Gairola",
-    "email": "mallox@pyxzl.net",
-    "url": "https://github.com/mallocator"
-  },
-  "bugs": {
-    "url": "http://github.com/mallocator/onall/issues",
-    "email": "mallox@pyxzl.net"
-  },
-  "engine": {
-    "node": ">=5.0"
-  },
-  "scripts": {
-    "test": "istanbul cover _mocha",
-    "test-travis": "istanbul cover _mocha --report lcovonly -- -R spec"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@babel/eslint-parser": "^7.12.16",
-    "chai": "^4.3.10",
-    "coveralls": "^3.1.1",
-    "gently": "^1.0.0",
-    "istanbul": "^0.4.5",
-    "mocha": "^10.2.0",
-    "mocha-lcov-reporter": "^1.3.0",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^7.32.0"
-  }
+    "name": "onall",
+    "version": "3.0.0",
+    "description": "Tiny EventEmitter helper that fires when all (or any) of a set of events have been emitted.",
+    "main": "index.js",
+    "types": "index.d.ts",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./index.d.ts",
+            "import": "./index.js",
+            "default": "./index.js"
+        }
+    },
+    "files": [
+        "index.js",
+        "index.d.ts",
+        "helpers.js",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+    ],
+    "keywords": [
+        "onall",
+        "onany",
+        "eventemitter",
+        "events",
+        "promise",
+        "abortsignal"
+    ],
+    "license": "Apache-2.0",
+    "homepage": "https://github.com/mallocator/onall",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mallocator/onall.git"
+    },
+    "author": {
+        "name": "Ravi Gairola",
+        "email": "mallox@pyxzl.net",
+        "url": "https://github.com/mallocator"
+    },
+    "bugs": {
+        "url": "https://github.com/mallocator/onall/issues",
+        "email": "mallox@pyxzl.net"
+    },
+    "engines": {
+        "node": ">=16"
+    },
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "coverage": "vitest run --coverage",
+        "prepublishOnly": "vitest run"
+    },
+    "devDependencies": {
+        "@vitest/coverage-v8": "^2.1.5",
+        "vitest": "^2.1.5"
+    }
 }

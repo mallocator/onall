@@ -1,231 +1,261 @@
-'use strict'
+import { EventEmitter } from 'node:events'
 
-import EventEmitter from 'events'
-
-function isEmpty(obj) {
-  for (const prop in obj) {
-    if (obj.hasOwnProperty(prop)) {
-      return false
-    }
-  }
-  return true
-}
+import {
+  anySignal,
+  assertCount,
+  assertEvents,
+  assertLimit,
+  isComplete,
+  makeDispose,
+  wireAbort,
+} from './helpers.js'
 
 /**
- * An event emitter helper class that allows to register multiple events at once.
+ * `EventEmitter` subclass that fires when all (or any) of a set of events
+ * have been emitted. See [`index.d.ts`](./index.d.ts) for the full,
+ * authoritative API documentation of every method on this class.
+ *
+ * @example
+ * import On from 'onall'
+ *
+ * const on = new On()
+ * on.allOnce(['ready', 'connected'], ({ ready, connected }) => {
+ *   console.log('both fired:', ready, connected)
+ * })
+ * on.emit('ready', 1)
+ * on.emit('connected', 'ok')
+ *
+ * @see ./index.d.ts
  */
 export default class On extends EventEmitter {
-  constructor(...args) {
-    super(...args)
-  }
-
-  /**
-   * Waits for all passed in events to be fired once. Arguments are passed on as object parameter with keys for each event.
-   * Multiple calls to the same event are ignored.
-   * @param {string[]} events
-   * @param {function} callback
-   * @param {boolean} [useFirst=false]
-   */
-  allOnce(events, callback, useFirst) {
-    let status = {}
-    let args = {}
-    if (useFirst) {
-      for (const event of events) {
-        status[event] = true
-        this.once(event,  (...eventArgs) => {
-          delete status[event]
-          args[event] = eventArgs
-          if (isEmpty(status)) {
-            callback(args)
-          }
-        })
-      }
-    } else {
-      let listeners = []
-      let that = this
-      for (const event of events) {
-        status[event] = true
-        let listener = (...eventArgs) =>  {
-          delete status[event]
-          args[event] = eventArgs
-          if (isEmpty(status)) {
-            for (let listener of listeners) {
-              that.removeListener(event, listener)
-            }
-            callback(args)
-          }
-        }
-        listeners.push(listener)
-        this.on(event, listener)
-      }
+  all(events, callback, options = {}) {
+    assertEvents(events)
+    if (typeof callback !== 'function') {
+      throw new TypeError('all() requires a callback')
     }
-  }
-
-  /**
-   * Waits for all passed in events to be fired as often as defined. Arguments are passed on as object parameter with
-   * keys for each event. Multiple calls to the same event are ignored.
-   * @param {string[]} events
-   * @param {number} count
-   * @param {function} callback
-   * @param {boolean} [useFirst=false]
-   */
-  allMany(events, count, callback, useFirst) {
-    let status = {}
+    const watched = [...events]
+    const useFirst = !!options.useFirst
+    const remaining = new Set(watched)
     let args = {}
-    let callbacks = []
-    let emits = 0
-    for (const event of events) {
-      status[event] = true
-      let wrapper =  (...eventArgs) => {
-        delete status[event]
-        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs
-        if (isEmpty(status)) {
-          emits++
-          if (emits === count) {
-            for (let callback of callbacks) {
-              this.removeListener(callback.event, callback.wrapper)
-            }
-          }
-          status = {}
-          for (const event2 of events) {
-            status[event2] = true
-          }
-          callback(args)
+    const wrappers = []
+    const dispose = makeDispose(this, wrappers)
+    for (const event of watched) {
+      const wrapper = (...eventArgs) => {
+        if (!useFirst || args[event] === undefined) {
+          args[event] = eventArgs
+        }
+        remaining.delete(event)
+        if (remaining.size === 0) {
+          for (const e of watched) remaining.add(e)
+          const out = args
           args = {}
+          callback(out)
         }
       }
-      callbacks.push({ event, wrapper })
+      wrappers.push({ event, wrapper })
       this.on(event, wrapper)
     }
+    wireAbort(options.signal, dispose)
+    return this
   }
 
-  /**
-   * Waits for all passed in events to be fired once. If an event is fired twice it's cached for the next round of callbacks.
-   * @param {string[]} events
-   * @param {function} callback
-   * @param {number} [cacheLimit=0] Sets a limited size for the cache. Once reached older messages will be discarded. Any false
-   *                                value will disable this check
-   * @param {boolean} [lifo=false]  Sets whether we should discard old or new events first when the cacheLimit has been reached.
-   *                                ('lifo' = last in first out, default is 'fifo' = first in first out)
-   */
-  allCached(events, callback, cacheLimit, lifo) {
-    let status = [{}]
-    let args = [{}]
-    for (const event of events) {
-      status[0][event] = true
-      this.on(event,  (...eventArgs) => {
-        let newRequired = true
-        for (const i in args) {
-          const arg = args[i]
-          if (!arg[event]) {
-            arg[event] = eventArgs
-            newRequired = false
-            delete status[i][event]
+  allOnce(events, callback, options = {}) {
+    return this.allMany(events, 1, callback, options)
+  }
+
+  allMany(events, count, callback, options = {}) {
+    assertEvents(events)
+    assertCount(count)
+    if (typeof callback !== 'function') {
+      throw new TypeError('allMany() requires a callback')
+    }
+    const watched = [...events]
+    const { useFirst = false, signal } = options
+    const remaining = new Set(watched)
+    let args = {}
+    let emits = 0
+    let disposed = false
+    const wrappers = []
+    const innerDispose = makeDispose(this, wrappers)
+    const dispose = () => {
+      if (disposed) return
+      disposed = true
+      innerDispose()
+    }
+    let cleanup
+    for (const event of watched) {
+      const wrapper = (...eventArgs) => {
+        if (disposed || emits >= count) return
+        if (!useFirst || args[event] === undefined) {
+          args[event] = eventArgs
+        }
+        remaining.delete(event)
+        if (remaining.size === 0) {
+          emits++
+          const out = args
+          args = {}
+          for (const e of watched) remaining.add(e)
+          if (emits >= count) cleanup()
+          callback(out)
+        }
+      }
+      wrappers.push({ event, wrapper })
+      this.on(event, wrapper)
+    }
+    cleanup = wireAbort(signal, dispose)
+    return this
+  }
+
+  allCached(events, callback, options = {}) {
+    assertEvents(events)
+    if (typeof callback !== 'function') {
+      throw new TypeError('allCached() requires a callback')
+    }
+    const watched = [...events]
+    const { cacheLimit, lifo: lifoFlag, signal } = options
+
+    const queue = []
+    const wrappers = []
+    const dispose = makeDispose(this, wrappers)
+
+    for (const event of watched) {
+      const wrapper = (...eventArgs) => {
+        let placed = false
+        for (const partial of queue) {
+          if (!Object.prototype.hasOwnProperty.call(partial, event)) {
+            partial[event] = eventArgs
+            placed = true
             break
           }
         }
-        if (newRequired) {
-          args.push({
-            [event]: eventArgs
-          })
-          if (cacheLimit && cacheLimit < args.length) {
-            lifo ? status.pop() : status.shift()
-            lifo ? args.pop() : args.shift()
-          }
-          let queuedStatus = {}
-          for (const event2 of events) {
-            queuedStatus[event2] = true
-          }
-          delete queuedStatus[event]
-          status.push(queuedStatus)
-        }
-        if (isEmpty(status[0])) {
-          status.shift()
-          callback(args[0])
-          args.shift()
-        }
-      })
-    }
-  }
-
-  /**
-   * Waits for all passed in events to be fired once. If an event is fired twice once of the events is discarded.
-   * @param {string[]} events
-   * @param {function} callback
-   * @param {boolean} [useFirst=false]
-   */
-  all(events, callback, useFirst) {
-    let status = {}
-    let args = {}
-    for (const event of events) {
-      status[event] = true
-      this.on(event,  (...eventArgs) => {
-        delete status[event]
-        args[event] = useFirst && args[event] !== undefined ? args[event] : eventArgs
-        if (isEmpty(status)) {
-          status = {}
-          for (const event2 of events) {
-            status[event2] = true
-          }
-          callback(args)
-          args = {}
-        }
-      })
-    }
-  }
-
-  /**
-   * If any of the passed in events is triggered that callback is called once and then removed as a listener.
-   * @param {string[]} events
-   * @param {function} callback
-   */
-  anyOnce(events, callback) {
-    let done = false
-    for (const event of events) {
-      this.once(event, (...args) => {
-        if (done) {
-          return
-        }
-        done = true
-        callback(event, ...args)
-      })
-    }
-  }
-
-  /**
-   * If any of the passed in events is triggered that callback is called up to a given number of events.
-   * @param {string[]} events
-   * @param {number} count
-   * @param {function} callback
-   */
-  anyMany(events, count, callback) {
-    const callbacks = []
-    let emits = 0
-    for (const event of events) {
-      let wrapper = (...args) => {
-        emits++
-        if (emits === count) {
-          for (const callback of callbacks) {
-            this.removeListener(callback.event, callback.wrapper)
+        if (!placed) {
+          queue.push({ [event]: eventArgs })
+          if (cacheLimit && queue.length > cacheLimit) {
+            // Evict the oldest (FIFO, default) or newest (LIFO) incomplete
+            // partial so the queue size never exceeds the limit.
+            if (lifoFlag) {
+              for (let i = queue.length - 1; i >= 0; i--) {
+                if (!isComplete(queue[i], watched)) {
+                  queue.splice(i, 1)
+                  break
+                }
+              }
+            } else {
+              for (let i = 0; i < queue.length; i++) {
+                if (!isComplete(queue[i], watched)) {
+                  queue.splice(i, 1)
+                  break
+                }
+              }
+            }
           }
         }
-        callback(event, ...args)
+        while (queue.length > 0 && isComplete(queue[0], watched)) {
+          callback(queue.shift())
+        }
       }
-      callbacks.push({event, wrapper})
+      wrappers.push({ event, wrapper })
       this.on(event, wrapper)
     }
+    wireAbort(signal, dispose)
+    return this
   }
 
+  any(events, callback, options = {}) {
+    if (typeof callback !== 'function') {
+      throw new TypeError('any() requires a callback')
+    }
+    return this.anyMany(events, Number.POSITIVE_INFINITY, callback, options)
+  }
+
+  anyOnce(events, callback, options = {}) {
+    return this.anyMany(events, 1, callback, options)
+  }
+
+  anyMany(events, count, callback, options = {}) {
+    assertEvents(events)
+    assertLimit(count)
+    if (typeof callback !== 'function') {
+      throw new TypeError('anyMany() requires a callback')
+    }
+    const watched = [...events]
+    const { signal } = options
+    const wrappers = []
+    let emits = 0
+    let disposed = false
+    const innerDispose = makeDispose(this, wrappers)
+    const dispose = () => {
+      if (disposed) return
+      disposed = true
+      innerDispose()
+    }
+    let cleanup
+    for (const event of watched) {
+      const wrapper = (...eventArgs) => {
+        if (disposed) return
+        emits++
+        if (emits >= count) cleanup()
+        callback(event, ...eventArgs)
+      }
+      wrappers.push({ event, wrapper })
+      this.on(event, wrapper)
+    }
+    cleanup = wireAbort(signal, dispose)
+    return this
+  }
+
+  scope() {
+    return new Scope(this)
+  }
+}
+
+/**
+ * Returned by {@link On#scope}. Auto-injects an `AbortSignal` into every
+ * registration method on {@link On} reflectively. A method qualifies if
+ * it lives on the `On` prototype, is a function other than `constructor`
+ * or `scope`, and follows the convention that its trailing parameter is
+ * `options = {}` — in which case `fn.length` is exactly the index at
+ * which to splice in the signal.
+ *
+ * @see ./index.d.ts
+ */
+class Scope {
+  #ac = new AbortController()
+  #emitter
+
   /**
-   * If any of the passed in events is triggered that callback is called.
-   * @param {string[]} events
-   * @param {function} callback
+   * @param {On} emitter The emitter to bind to.
    */
-  any(events, callback) {
-    for (const event of events) {
-      this.on(event, (...args) => {
-        callback(event, ...args)
-      })
+  constructor(emitter) {
+    this.#emitter = emitter
+    const proto = Object.getPrototypeOf(emitter)
+    const skip = new Set(['constructor', emitter.scope.name])
+    for (const name of Object.getOwnPropertyNames(proto)) {
+      if (skip.has(name)) continue
+      const fn = proto[name]
+      if (typeof fn !== 'function') continue
+      const optsIdx = fn.length
+      this[name] = (...args) => {
+        while (args.length < optsIdx) args.push(undefined)
+        args[optsIdx] = this.#withSignal(args[optsIdx])
+        return emitter[name](...args)
+      }
+    }
+  }
+
+  get signal() {
+    return this.#ac.signal
+  }
+
+  cancel(reason) {
+    this.#ac.abort(reason)
+  }
+
+  #withSignal(opts = {}) {
+    const own = this.#ac.signal
+    return {
+      ...opts,
+      signal: opts.signal ? anySignal([opts.signal, own]) : own,
     }
   }
 }
