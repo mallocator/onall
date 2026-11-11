@@ -13,9 +13,7 @@ set of events have been emitted. Classic callback-and-`this` API plus
 npm install onall
 ```
 
-Requires Node.js 16 or newer. On Node 16 the `reason` argument to
-`AbortController#abort` (and the matching `signal.reason`) is silently
-dropped — propagating an abort reason requires Node 17.2+.
+Requires Node.js 22.12 or newer.
 
 ## Usage
 

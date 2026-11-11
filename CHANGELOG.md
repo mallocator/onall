@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Requires Node.js >= 22.12 (was >= 16). CI runs on Node 22, 24 and 26.
+- Development moved to Vitest 5, which needs Node 22.12.
+
 ## 3.0.0
 
 ### Breaking changes

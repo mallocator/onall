@@ -345,6 +345,32 @@ describe('On.anyOnce()', () => {
   })
 })
 
+describe('abort during an emit', () => {
+  // emit() calls a snapshot of the listeners, so a wrapper removed by an
+  // earlier listener of the same event still runs once and must do nothing.
+  it('allOnce() does not fire when an earlier listener aborts', () => {
+    const on = new On()
+    const ac = new AbortController()
+    const cb = vi.fn()
+    on.on('a', () => ac.abort())
+    on.allOnce(['a'], cb, { signal: ac.signal })
+    on.emit('a', 1)
+    expect(cb).not.toHaveBeenCalled()
+    expect(on.listenerCount('a')).toBe(1)
+  })
+
+  it('anyOnce() does not fire when an earlier listener aborts', () => {
+    const on = new On()
+    const ac = new AbortController()
+    const cb = vi.fn()
+    on.on('a', () => ac.abort())
+    on.anyOnce(['a'], cb, { signal: ac.signal })
+    on.emit('a', 1)
+    expect(cb).not.toHaveBeenCalled()
+    expect(on.listenerCount('a')).toBe(1)
+  })
+})
+
 describe('input validation', () => {
   it('rejects non-array events', () => {
     const on = new On()
@@ -379,6 +405,16 @@ describe('input validation', () => {
   it('allCached() requires a callback', () => {
     const on = new On()
     expect(() => on.allCached(['a'])).toThrow(TypeError)
+  })
+
+  it('allMany() requires a callback', () => {
+    const on = new On()
+    expect(() => on.allMany(['a'], 1)).toThrow(TypeError)
+  })
+
+  it('anyMany() requires a callback', () => {
+    const on = new On()
+    expect(() => on.anyMany(['a'], 1)).toThrow(TypeError)
   })
 })
 
