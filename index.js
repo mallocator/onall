@@ -228,8 +228,8 @@ class Scope {
    */
   constructor(emitter) {
     this.#emitter = emitter
-    const proto = Object.getPrototypeOf(emitter)
-    const skip = new Set(['constructor', emitter.scope.name])
+    const proto = On.prototype
+    const skip = new Set(['constructor', 'scope'])
     for (const name of Object.getOwnPropertyNames(proto)) {
       if (skip.has(name)) continue
       const fn = proto[name]

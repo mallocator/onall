@@ -7,6 +7,11 @@
 - Requires Node.js >= 22.12 (was >= 16). CI runs on Node 22, 24 and 26.
 - Development moved to Vitest 5, which needs Node 22.12.
 
+### Fixes
+
+- `scope()` works on subclasses of `On`: the scope's `all`, `any` and the other
+  methods were missing when the emitter was a subclass instance.
+
 ## 3.0.0
 
 ### Breaking changes

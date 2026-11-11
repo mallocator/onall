@@ -486,4 +486,16 @@ describe('On.scope()', () => {
     on.emit('a', 1); on.emit('a', 2); on.emit('b', 3)
     expect(cb).toHaveBeenCalledWith({ a: [1], b: [3] })
   })
+
+  it('works on subclasses of On', () => {
+    class Sub extends On {}
+    const on = new Sub()
+    const cb = vi.fn()
+    const group = on.scope()
+    group.all(['a', 'b'], cb)
+    on.emit('a', 1); on.emit('b', 2)
+    expect(cb).toHaveBeenCalledWith({ a: [1], b: [2] })
+    group.cancel()
+    expect(on.listenerCount('a')).toBe(0)
+  })
 })
